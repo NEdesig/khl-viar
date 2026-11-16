@@ -1,0 +1,52 @@
+```html
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080B19"><title>KHL-VIAR — хоккейный менеджер</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="KHL-VIAR"><span class="brand-mark">V</span><span>KHL<span class="brand-accent">-VIAR</span><small>HOCKEY LEAGUE SIMULATOR</small></span></a>
+      <div class="top-meta"><span class="live-dot"></span> СЕЗОН · РЕГУЛЯРНЫЙ ЧЕМПИОНАТ <b id="matchesDone">0 / 231</b></div>
+    </header>
+    <nav class="tabs" aria-label="Разделы сайта">
+      <button class="tab active" data-tab="matches">Матчи <span class="tab-count">231</span></button>
+      <button class="tab" data-tab="west">Запад</button>
+      <button class="tab" data-tab="east">Восток</button>
+      <button class="tab" data-tab="ratings">Рейтинг команд</button>
+    </nav>
+    <main>
+      <section id="matches" class="view active">
+        <div class="page-heading"><div><p class="eyebrow">КАЛЕНДАРЬ СЕЗОНА</p><h1>Матчи <span>лиги</span></h1><p class="subheading">231 матч · 22 клуба · круговой формат</p></div><div class="heading-side"><span class="mini-label">ЗАПОЛНЕНО</span><strong id="completionPercent">0%</strong></div></div>
+        <div class="toolbar">
+          <label class="search"><span>⌕</span><input id="matchSearch" type="search" placeholder="Поиск команды или соперника"></label>
+          <select id="dayFilter" aria-label="Игровой день"><option value="all">Все игровые дни</option></select>
+          <select id="statusFilter" aria-label="Статус матча"><option value="all">Все матчи</option><option value="done">С результатом</option><option value="pending">Без результата</option></select>
+        </div>
+        <div id="matchList" class="match-list"></div>
+      </section>
+      <section id="west" class="view">
+        <div class="page-heading"><div><p class="eyebrow">ТУРНИРНАЯ ТАБЛИЦА</p><h1>Западная <span>конференция</span></h1><p class="subheading">11 команд · очки по системе КХЛ</p></div><div class="heading-side"><span class="mini-label">ЛИДЕР</span><strong id="westLeader">—</strong></div></div>
+        <div id="westTable" class="table-wrap"></div>
+      </section>
+      <section id="east" class="view">
+        <div class="page-heading"><div><p class="eyebrow">ТУРНИРНАЯ ТАБЛИЦА</p><h1>Восточная <span>конференция</span></h1><p class="subheading">11 команд · очки по системе КХЛ</p></div><div class="heading-side"><span class="mini-label">ЛИДЕР</span><strong id="eastLeader">—</strong></div></div>
+        <div id="eastTable" class="table-wrap"></div>
+      </section>
+      <section id="ratings" class="view">
+        <div class="page-heading"><div><p class="eyebrow">СИЛА КОМАНД</p><h1>Рейтинг <span>клубов</span></h1><p class="subheading">Оцени каждую команду от 0 до 100 баллов</p></div><div class="heading-side"><span class="mini-label">ВЛИЯЕТ НА</span><strong>ГЕНЕРАЦИЮ</strong></div></div>
+        <div class="rating-note"><span class="note-icon">↗</span><span>Чем выше рейтинг, тем больше вероятность победы и крупного счёта. Рейтинг можно менять в любой момент.</span></div>
+        <div id="ratingList" class="rating-list"></div>
+      </section>
+    </main>
+    <footer><span>KHL-VIAR <b>©</b></span><span>Локальное сохранение данных в этом браузере</span><button id="resetAll" class="reset-btn">Сбросить сезон</button></footer>
+  </div>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="schedule.js"></script><script src="app.js"></script>
+</body>
+</html>
