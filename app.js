@@ -708,7 +708,91 @@ function getStandings(teams) {
     const home = table[match.home];
     const away = table[match.away];
 
-    if (!home || !away) return;
+    
+function getStandings(teams) {
+  const table = Object.fromEntries(
+    teams.map(team => [
+      team,
+      {
+        team,
+        gp: 0,
+        wins: 0,
+        losses: 0,
+        ot: 0,
+        gf: 0,
+        ga: 0,
+        pts: 0
+      }
+    ])
+  );
+
+  state.matches.forEach(match => {
+    if (!isDone(match)) return;
+
+    const home = table[match.home];
+    const away = table[match.away];
+
+    // Если обе команды не относятся к этой конференции,
+    // матч для её таблицы не учитывается.
+    if (!home && !away) return;
+
+    const hg = normalizeScore(match.homeGoals);
+    const ag = normalizeScore(match.awayGoals);
+
+    if (hg === null || ag === null || hg === ag) return;
+
+    const homeWin = hg > ag;
+    const type = ['OT', 'SO'].includes(match.resultType)
+      ? match.resultType
+      : 'REG';
+
+    // Учитываем статистику каждой команды отдельно.
+    if (home) {
+      home.gp++;
+      home.gf += hg;
+      home.ga += ag;
+
+      if (homeWin) {
+        home.wins++;
+        home.pts += type === 'REG' ? 3 : 2;
+      } else {
+        home.losses++;
+
+        if (type !== 'REG') {
+          home.ot++;
+          home.pts += 1;
+        }
+      }
+    }
+
+    if (away) {
+      away.gp++;
+      away.gf += ag;
+      away.ga += hg;
+
+      if (!homeWin) {
+        away.wins++;
+        away.pts += type === 'REG' ? 3 : 2;
+      } else {
+        away.losses++;
+
+        if (type !== 'REG') {
+          away.ot++;
+          away.pts += 1;
+        }
+      }
+    }
+  });
+
+  return Object.values(table).sort((a, b) =>
+    b.pts - a.pts ||
+    b.wins - a.wins ||
+    (b.gf - b.ga) - (a.gf - a.ga) ||
+    b.gf - a.gf ||
+    a.team.localeCompare(b.team, 'ru')
+  );
+}
+
 
     // Всегда используем числовые значения.
     const hg = Number(match.homeGoals);
