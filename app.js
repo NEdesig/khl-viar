@@ -134,7 +134,8 @@ function getTeamBadge(team) {
   `;
 }
 
-// Нормализация счёта: поддерживает числа и строки из старых сохранений.
+// Приводит сохранённый счёт к числу.
+// Поддерживает как числа, так и строки из старых сохранений.
 function normalizeScore(value) {
   if (value === null || value === undefined || value === '') {
     return null;
@@ -173,14 +174,13 @@ function loadState() {
         ...(savedMatch || {})
       };
 
-      // Если пользователь очистил счёт, не возвращаем стартовый результат.
-      const scoreWasCleared = savedMatch &&
-        (
-          savedMatch.homeGoals === null ||
-          savedMatch.awayGoals === null
-        );
+      // Явно очищенный пользователем счёт не заменяем стартовым.
+      const scoreCleared = savedMatch && (
+        savedMatch.homeGoals === null ||
+        savedMatch.awayGoals === null
+      );
 
-      if (scoreWasCleared) {
+      if (scoreCleared) {
         merged.homeGoals = null;
         merged.awayGoals = null;
       } else {
@@ -203,9 +203,13 @@ function loadState() {
 
     const ratings = Object.fromEntries(
       RATING_ORDER.map(team => {
-        const stored = Number(saved.ratings?.[team]);
+        const storedValue = saved.ratings?.[team];
+        const stored = Number(storedValue);
 
         const useStored =
+          storedValue !== null &&
+          storedValue !== undefined &&
+          storedValue !== '' &&
           Number.isFinite(stored) &&
           stored >= 0 &&
           stored <= 100 &&
@@ -237,10 +241,10 @@ let state = loadState();
 let openedMatch = null;
 
 function isDone(match) {
-  const homeGoals = normalizeScore(match.homeGoals);
-  const awayGoals = normalizeScore(match.awayGoals);
-
-  return homeGoals !== null && awayGoals !== null;
+  return (
+    normalizeScore(match.homeGoals) !== null &&
+    normalizeScore(match.awayGoals) !== null
+  );
 }
 
 function persist() {
@@ -537,7 +541,9 @@ function saveMatch(id) {
     `.match-card[data-id="${id}"]`
   );
 
-  const match = state.matches.find(item => Number(item.id) === Number(id));
+  const match = state.matches.find(
+    item => Number(item.id) === Number(id)
+  );
 
   if (!card || !match) return;
 
@@ -577,7 +583,7 @@ function saveMatch(id) {
   match.resultType = type || 'REG';
 
   if (hg === '') {
-    // null фиксирует очистку и не позволяет вернуть старый seeded-счёт.
+    // null сохраняется в localStorage и фиксирует очистку счёта.
     match.homeGoals = null;
     match.awayGoals = null;
   } else {
@@ -609,7 +615,10 @@ function randomGoals(mean) {
 }
 
 function generateScore(id) {
-  const match = state.matches.find(item => Number(item.id) === Number(id));
+  const match = state.matches.find(
+    item => Number(item.id) === Number(id)
+  );
+
   const card = document.querySelector(
     `.match-card[data-id="${id}"]`
   );
@@ -701,7 +710,7 @@ function getStandings(teams) {
 
     if (!home || !away) return;
 
-    // Дополнительная защита от строковых значений.
+    // Всегда используем числовые значения.
     const hg = Number(match.homeGoals);
     const ag = Number(match.awayGoals);
 
