@@ -1,3 +1,4 @@
+
 const WEST = [
   'Динамо Минск', 'Динамо Москва', 'Лада', 'Локомотив', 'СКА',
   'Северсталь', 'Сочи', 'Спартак', 'Торпедо', 'ЦСКА', 'Шанхай Дрэгонс'
@@ -126,10 +127,26 @@ function esc(value) {
 
 function getTeamBadge(team) {
   const data = TEAM_COLORS[team] || ['#657080','#FFFFFF',team.slice(0,2)];
+
   return `
     <span class="club-badge"
       style="--club:${data[0]};--ink:${data[1]}">${data[2]}</span>
   `;
+}
+
+// Нормализация счёта: поддерживает числа и строки из старых сохранений.
+function normalizeScore(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const number = Number(value);
+
+  if (!Number.isInteger(number) || number < 0 || number > 30) {
+    return null;
+  }
+
+  return number;
 }
 
 function loadState() {
@@ -142,35 +159,74 @@ function loadState() {
     const saved = JSON.parse(current || legacy || '{}');
     const migratingLegacy = !current && !!legacy;
 
-    return {
-      matches: window.INITIAL_MATCHES.map(match => ({
+    const matches = window.INITIAL_MATCHES.map(match => {
+      const id = Number(match.id);
+
+      const savedMatch =
+        saved.matches?.[id] ??
+        saved.matches?.[String(id)] ??
+        null;
+
+      const merged = {
         ...match,
-        ...(SEEDED_RESULTS[match.id] || {}),
-        ...(saved.matches?.[match.id] || {})
-      })),
+        ...(SEEDED_RESULTS[id] || {}),
+        ...(savedMatch || {})
+      };
 
-      ratings: Object.fromEntries(
-        RATING_ORDER.map(team => {
-          const stored = saved.ratings?.[team];
+      // Если пользователь очистил счёт, не возвращаем стартовый результат.
+      const scoreWasCleared = savedMatch &&
+        (
+          savedMatch.homeGoals === null ||
+          savedMatch.awayGoals === null
+        );
 
-          const useStored =
-            Number.isFinite(stored) &&
-            (!migratingLegacy || stored !== 50);
+      if (scoreWasCleared) {
+        merged.homeGoals = null;
+        merged.awayGoals = null;
+      } else {
+        const homeGoals = normalizeScore(merged.homeGoals);
+        const awayGoals = normalizeScore(merged.awayGoals);
 
-          return [
-            team,
-            useStored ? stored : (INITIAL_RATINGS[team] ?? 50)
-          ];
-        })
-      )
-    };
+        if (homeGoals !== null && awayGoals !== null) {
+          merged.homeGoals = homeGoals;
+          merged.awayGoals = awayGoals;
+        } else {
+          merged.homeGoals = null;
+          merged.awayGoals = null;
+        }
+      }
+
+      merged.id = id;
+
+      return merged;
+    });
+
+    const ratings = Object.fromEntries(
+      RATING_ORDER.map(team => {
+        const stored = Number(saved.ratings?.[team]);
+
+        const useStored =
+          Number.isFinite(stored) &&
+          stored >= 0 &&
+          stored <= 100 &&
+          (!migratingLegacy || stored !== 50);
+
+        return [
+          team,
+          useStored ? stored : (INITIAL_RATINGS[team] ?? 50)
+        ];
+      })
+    );
+
+    return {matches, ratings};
+
   } catch (error) {
     console.error('Ошибка загрузки сезона:', error);
 
     return {
       matches: window.INITIAL_MATCHES.map(match => ({
         ...match,
-        ...(SEEDED_RESULTS[match.id] || {})
+        ...(SEEDED_RESULTS[Number(match.id)] || {})
       })),
       ratings: {...INITIAL_RATINGS}
     };
@@ -181,8 +237,10 @@ let state = loadState();
 let openedMatch = null;
 
 function isDone(match) {
-  return Number.isInteger(match.homeGoals) &&
-    Number.isInteger(match.awayGoals);
+  const homeGoals = normalizeScore(match.homeGoals);
+  const awayGoals = normalizeScore(match.awayGoals);
+
+  return homeGoals !== null && awayGoals !== null;
 }
 
 function persist() {
@@ -192,8 +250,8 @@ function persist() {
       {
         date: match.date || '',
         time: match.time || '',
-        homeGoals: match.homeGoals,
-        awayGoals: match.awayGoals,
+        homeGoals: normalizeScore(match.homeGoals),
+        awayGoals: normalizeScore(match.awayGoals),
         resultType: match.resultType || 'REG'
       }
     ])
@@ -266,6 +324,7 @@ document.querySelectorAll('.tab').forEach(button => {
 
 function initFilters() {
   const select = document.getElementById('dayFilter');
+  if (!select) return;
 
   const days = [...new Set(
     state.matches.map(match => match.day)
@@ -287,11 +346,16 @@ function formatDate(value) {
 }
 
 function renderMatches() {
-  const query = document.getElementById('matchSearch')
-    .value.trim().toLocaleLowerCase('ru');
+  const searchElement = document.getElementById('matchSearch');
+  const dayElement = document.getElementById('dayFilter');
+  const statusElement = document.getElementById('statusFilter');
+  const root = document.getElementById('matchList');
 
-  const day = document.getElementById('dayFilter').value;
-  const status = document.getElementById('statusFilter').value;
+  if (!searchElement || !dayElement || !statusElement || !root) return;
+
+  const query = searchElement.value.trim().toLocaleLowerCase('ru');
+  const day = dayElement.value;
+  const status = statusElement.value;
 
   const filtered = state.matches.filter(match => {
     const teams = (
@@ -307,8 +371,6 @@ function renderMatches() {
       )
     );
   });
-
-  const root = document.getElementById('matchList');
 
   if (!filtered.length) {
     root.innerHTML =
@@ -333,7 +395,7 @@ function renderMatches() {
 
     const done = isDone(match);
     const score = done
-      ? `${match.homeGoals} : ${match.awayGoals}`
+      ? `${normalizeScore(match.homeGoals)} : ${normalizeScore(match.awayGoals)}`
       : '— : —';
 
     const resultLabel = match.resultType === 'OT'
@@ -403,7 +465,7 @@ function renderMatches() {
                   min="0"
                   max="30"
                   data-field="homeGoals"
-                  value="${done ? match.homeGoals : ''}"
+                  value="${done ? normalizeScore(match.homeGoals) : ''}"
                   placeholder="0">
 
                 <span>:</span>
@@ -413,7 +475,7 @@ function renderMatches() {
                   min="0"
                   max="30"
                   data-field="awayGoals"
-                  value="${done ? match.awayGoals : ''}"
+                  value="${done ? normalizeScore(match.awayGoals) : ''}"
                   placeholder="0">
               </div>
             </div>
@@ -475,7 +537,7 @@ function saveMatch(id) {
     `.match-card[data-id="${id}"]`
   );
 
-  const match = state.matches.find(item => item.id === id);
+  const match = state.matches.find(item => Number(item.id) === Number(id));
 
   if (!card || !match) return;
 
@@ -515,14 +577,14 @@ function saveMatch(id) {
   match.resultType = type || 'REG';
 
   if (hg === '') {
-    delete match.homeGoals;
-    delete match.awayGoals;
+    // null фиксирует очистку и не позволяет вернуть старый seeded-счёт.
+    match.homeGoals = null;
+    match.awayGoals = null;
   } else {
     match.homeGoals = Number(hg);
     match.awayGoals = Number(ag);
   }
 
-  // Сохранение данных и немедленный пересчёт обеих конференций.
   persist();
 
   openedMatch = null;
@@ -547,7 +609,7 @@ function randomGoals(mean) {
 }
 
 function generateScore(id) {
-  const match = state.matches.find(item => item.id === id);
+  const match = state.matches.find(item => Number(item.id) === Number(id));
   const card = document.querySelector(
     `.match-card[data-id="${id}"]`
   );
@@ -607,6 +669,7 @@ document.getElementById('matchList').addEventListener('click', event => {
 
 ['matchSearch', 'dayFilter', 'statusFilter'].forEach(id => {
   const element = document.getElementById(id);
+  if (!element) return;
 
   element.addEventListener(
     id === 'matchSearch' ? 'input' : 'change',
@@ -638,8 +701,12 @@ function getStandings(teams) {
 
     if (!home || !away) return;
 
-    const hg = match.homeGoals;
-    const ag = match.awayGoals;
+    // Дополнительная защита от строковых значений.
+    const hg = Number(match.homeGoals);
+    const ag = Number(match.awayGoals);
+
+    if (!Number.isInteger(hg) || !Number.isInteger(ag)) return;
+
     const homeWin = hg > ag;
     const type = match.resultType || 'REG';
 
@@ -653,7 +720,6 @@ function getStandings(teams) {
     away.ga += hg;
 
     if (type === 'REG') {
-      // Победа в основное время: 3 очка.
       if (homeWin) {
         home.wins++;
         home.pts += 3;
@@ -664,8 +730,6 @@ function getStandings(teams) {
         home.losses++;
       }
     } else {
-      // Победа в ОТ/Б: 2 очка.
-      // Поражение в ОТ/Б: 1 очко и запись в колонку ОТ.
       if (homeWin) {
         home.wins++;
         home.pts += 2;
@@ -758,7 +822,10 @@ function renderStandings() {
 }
 
 function renderRatings() {
-  document.getElementById('ratingList').innerHTML =
+  const root = document.getElementById('ratingList');
+  if (!root) return;
+
+  root.innerHTML =
     RATING_ORDER.map((team, index) => `
       <div class="rating-item">
 
@@ -794,8 +861,11 @@ document.getElementById('ratingList').addEventListener('input', event => {
   state.ratings[team] = Number(input.value);
 
   const index = RATING_ORDER.indexOf(team);
-  document.getElementById(`rating-value-${index}`).textContent =
-    input.value;
+  const valueElement = document.getElementById(`rating-value-${index}`);
+
+  if (valueElement) {
+    valueElement.textContent = input.value;
+  }
 
   persist();
 });
