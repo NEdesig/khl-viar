@@ -1,5 +1,4 @@
 
-
 const WEST = [
   'Динамо Минск', 'Динамо Москва', 'Лада', 'Локомотив', 'СКА',
   'Северсталь', 'Сочи', 'Спартак', 'Торпедо', 'ЦСКА', 'Шанхай Дрэгонс'
@@ -510,7 +509,7 @@ function renderMatches() {
 
           <div class="editor-bottom">
             <span class="editor-hint">
-              Победа в основное время — 3 очка · ОТ/Б — 2 · Поражение в ОТ/Б — 1
+              Победа — 2 очка · Поражение в ОТ/Б — 1 очко
             </span>
 
             <div class="editor-buttons">
@@ -729,7 +728,7 @@ function getStandings(teams) {
 
       if (homeWin) {
         home.wins++;
-        home.pts += type === 'REG' ? 3 : 2;
+        home.pts += 2;
       } else {
         home.losses++;
 
@@ -748,7 +747,7 @@ function getStandings(teams) {
 
       if (!homeWin) {
         away.wins++;
-        away.pts += type === 'REG' ? 3 : 2;
+        away.pts += 2;
       } else {
         away.losses++;
 
